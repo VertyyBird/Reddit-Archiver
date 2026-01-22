@@ -23,7 +23,7 @@ For each new post on a subreddit’s /new.rss feed, the script:
    - title, timestamps, original URLs
    - archive URLs (if obtained)
    - status + errors
-5. periodically performs Level B verification for Wayback:
+5. periodically performs verification for Wayback:
    - calls the Wayback Availability API
    - only marks ok=1 if it finds an archived snapshot whose timestamp is at or after the submission timestamp
 
@@ -35,7 +35,7 @@ The script can also run a lightweight dashboard web server in the same process, 
 - RSS-only (no Reddit OAuth needed)
 - Archives both www and old Reddit views for preference
 - SQLite storage with automatic schema migration
-- Wayback Level B verification via availability lookups
+- Wayback verification via availability lookups
 - LAN dashboard (HTML) + JSON API endpoint
 - Exports a small latest_archives.json snapshot for easy integrations
 

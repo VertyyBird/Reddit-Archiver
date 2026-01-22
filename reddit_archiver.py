@@ -208,7 +208,7 @@ def parse_config(path: str) -> tuple[Settings, list[str]]:
     except FileNotFoundError:
         pass
 
-    # Dedupe while keeping order
+    # De-dupe while keeping order.
     seen = set()
     deduped: list[str] = []
     for s in subs:
@@ -737,7 +737,7 @@ def _status_wayback(r: sqlite3.Row, view: str) -> tuple[str, str]:
     if ok == 1:
         return "ok", "✓ ok"
     if submit_ts and ok == 0:
-        # Pending or failed. If checked_at exists, it's been checked and still not OK.
+        # Pending or failed. If checked_at exists, we already checked and it's still not OK.
         if checked_at:
             return "pending", "… pending"
         return "pending", "… queued"
@@ -760,7 +760,7 @@ def _fmt_time(r: sqlite3.Row) -> str:
     if r["created_utc"]:
         dt = datetime.fromtimestamp(int(r["created_utc"]), tz=timezone.utc)
         return dt.strftime("%Y-%m-%d %H:%M UTC")
-    # fallback to inserted_at
+    # Fall back to inserted_at if checked_at is missing.
     s = (r["inserted_at"] or "")[:16].replace("T", " ")
     return s + " UTC" if s else "—"
 
@@ -768,7 +768,7 @@ def _fmt_time(r: sqlite3.Row) -> str:
 def start_dashboard(db_path: str, host: str, port: int) -> tuple[ThreadingTCPServer, threading.Thread]:
     class Handler(BaseHTTPRequestHandler):
         def log_message(self, fmt: str, *args: Any) -> None:
-            # Keep console quieter. Comment out if you want request logs.
+            # Keep the console quieter; comment this out if you want request logs.
             return
 
         def do_GET(self) -> None:

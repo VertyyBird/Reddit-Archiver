@@ -273,6 +273,14 @@ def polite_sleep(base_seconds: float) -> None:
     time.sleep(base_seconds + random.uniform(0.2, 1.2))
 
 
+def archive_today_ok_value(aurl: str | None, err: str | None) -> int | None:
+    if aurl:
+        return 1
+    if err:
+        return 0
+    return None
+
+
 def rss_entry_created_utc(entry) -> int | None:
     if hasattr(entry, "published_parsed") and entry.published_parsed:
         return int(calendar.timegm(entry.published_parsed))
@@ -583,7 +591,7 @@ def poll_subreddit(
                 conn,
                 rid,
                 atoday_www=aurl,
-                atoday_www_ok=1 if aurl else 0,
+                atoday_www_ok=archive_today_ok_value(aurl, err),
                 atoday_www_checked_at=now_iso(),
                 err_atoday_www=err,
             )
@@ -594,7 +602,7 @@ def poll_subreddit(
                 conn,
                 rid,
                 atoday_old=aurl2,
-                atoday_old_ok=1 if aurl2 else 0,
+                atoday_old_ok=archive_today_ok_value(aurl2, err2),
                 atoday_old_checked_at=now_iso(),
                 err_atoday_old=err2,
             )
@@ -682,6 +690,66 @@ def verify_wayback_pending(
     return checked
 
 
+def verify_atoday_pending(
+    conn: sqlite3.Connection,
+    session: requests.Session,
+    verify_batch: int,
+    verify_recheck_interval: int,
+    delay_atoday: float,
+) -> int:
+    checked = 0
+    now_epoch = int(time.time())
+
+    cur = conn.execute(
+        """SELECT
+             reddit_id, url_www, url_old,
+             atoday_www_ok, atoday_old_ok,
+             atoday_www_checked_at, atoday_old_checked_at
+           FROM posts
+           WHERE (atoday_www_ok IS NULL AND atoday_www_checked_at IS NOT NULL)
+              OR (atoday_old_ok IS NULL AND atoday_old_checked_at IS NOT NULL)
+           ORDER BY inserted_at DESC
+           LIMIT ?""",
+        (verify_batch,),
+    )
+    rows = cur.fetchall()
+
+    for r in rows:
+        rid = r["reddit_id"]
+
+        if r["atoday_www_ok"] is None and r["atoday_www_checked_at"]:
+            last_check_epoch = iso_to_epoch(r["atoday_www_checked_at"] or "") or 0
+            if (now_epoch - last_check_epoch) >= verify_recheck_interval:
+                ok, aurl, err = submit_archive_today(session, r["url_www"])
+                update_fields(
+                    conn,
+                    rid,
+                    atoday_www=aurl,
+                    atoday_www_ok=archive_today_ok_value(aurl, err),
+                    atoday_www_checked_at=now_iso(),
+                    err_atoday_www=err,
+                )
+                checked += 1
+                polite_sleep(delay_atoday)
+
+        if r["atoday_old_ok"] is None and r["atoday_old_checked_at"]:
+            last_check_epoch = iso_to_epoch(r["atoday_old_checked_at"] or "") or 0
+            if (now_epoch - last_check_epoch) >= verify_recheck_interval:
+                ok, aurl, err = submit_archive_today(session, r["url_old"])
+                update_fields(
+                    conn,
+                    rid,
+                    atoday_old=aurl,
+                    atoday_old_ok=archive_today_ok_value(aurl, err),
+                    atoday_old_checked_at=now_iso(),
+                    err_atoday_old=err,
+                )
+                checked += 1
+                polite_sleep(delay_atoday)
+
+    return checked
+
+
 # -------------------------
 # Embedded dashboard server
 # -------------------------
@@ -751,6 +819,8 @@ def _status_atoday(r: sqlite3.Row, view: str) -> tuple[str, str]:
     checked_at = r["atoday_www_checked_at"] if view == "www" else r["atoday_old_checked_at"]
     if ok == 1:
         return "ok", "✓ ok"
+    if ok is None and checked_at:
+        return "pending", "… pending"
     if checked_at:
         return "bad", "✕ no link"
     return "unknown", "—"
@@ -1078,13 +1148,29 @@ def main() -> None:
                 except Exception as e:
                     print(f"[verify] Wayback verify error: {e}", file=sys.stderr)
 
+            atoday_checked = 0
+            if settings.do_archive_today:
+                try:
+                    atoday_checked = verify_atoday_pending(
+                        conn=conn,
+                        session=session,
+                        verify_batch=settings.verify_batch,
+                        verify_recheck_interval=settings.verify_recheck_interval,
+                        delay_atoday=settings.delay_atoday,
+                    )
+                except Exception as e:
+                    print(f"[verify] Archive.today verify error: {e}", file=sys.stderr)
+
             try:
                 if settings.out_json:
                     write_latest_json(conn, settings.out_json, limit=settings.json_limit)
             except Exception as e:
                 print(f"[json] Write error: {e}", file=sys.stderr)
 
-            print(f"Cycle done. New posts: {total_new} | Wayback legs verified this cycle: {verified}")
+            print(
+                f"Cycle done. New posts: {total_new} | Wayback legs verified this cycle: {verified} | "
+                f"Archive.today legs retried this cycle: {atoday_checked}"
+            )
 
             if args.once:
                 break

@@ -1,0 +1,4 @@
+- Archive.today submissions that return 2xx without a URL are treated as success but later marked failed and never rechecked; this can create false negatives and permanently "bad" status.
+- Config parsing uses direct int()/float() without validation; a typo like interval=abc will crash the run.
+- Missing config file is silently ignored and the app falls back to ChatGPT, which can hide misconfigurations.
+- Wayback status labels show "pending" even when ok==0 and a check already happened, which reads like queued rather than failed.

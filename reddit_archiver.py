@@ -23,7 +23,7 @@ from urllib.parse import parse_qs, urlparse, urlunparse
 import feedparser
 import requests
 
-USER_AGENT = "rhys-reddit-rss-archiver/4.0 (personal use; LAN dashboard)"
+USER_AGENT = "reddit-rss-archiver/4.0 (personal use; LAN dashboard)"
 WAYBACK_SAVE_PREFIX = "https://web.archive.org/save/"
 WAYBACK_AVAIL_ENDPOINT = "https://archive.org/wayback/available"
 

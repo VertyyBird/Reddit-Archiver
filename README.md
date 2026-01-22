@@ -242,7 +242,7 @@ Nothing is being archived:
 * try:
 
   ```bash
-  curl -A "rhys-reddit-rss-archiver" https://www.reddit.com/r/ChatGPT/new.rss
+  curl -A "reddit-rss-archiver" https://www.reddit.com/r/ChatGPT/new.rss
   ```
 
 ## Roadmap ideas

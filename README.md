@@ -50,7 +50,7 @@ On Debian/Ubuntu/Mint:
 ```bash
 sudo apt update
 sudo apt install -y python3 python3-pip
-pip3 install requests feedparser
+pip3 install -r requirements.txt
 ```
 
 ## Config file
